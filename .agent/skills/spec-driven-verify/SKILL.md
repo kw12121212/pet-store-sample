@@ -8,17 +8,17 @@ You are helping the user verify a spec-driven change before archiving.
 
 ## Steps
 
-1. **Select the change** — run `node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-verify/scripts/spec-driven.js modify` to list active changes. Ask which change to verify. If already specified, use it.
+1. **Select the change** — run `node .agent/skills/spec-driven-verify/scripts/spec-driven.js modify` to list active changes. Ask which change to verify. If already specified, use it.
 
 2. **Format check** — run:
    ```
-   node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-verify/scripts/spec-driven.js verify <name>
+   node .agent/skills/spec-driven-verify/scripts/spec-driven.js verify <name>
    ```
    Report any errors (blocking) or warnings (non-blocking).
 
 3. **Task completion check** — run:
    ```
-   node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-verify/scripts/spec-driven.js apply <name>
+   node .agent/skills/spec-driven-verify/scripts/spec-driven.js apply <name>
    ```
    If `remaining > 0`, list the incomplete tasks. These are CRITICAL issues.
 
@@ -27,9 +27,10 @@ You are helping the user verify a spec-driven change before archiving.
    - Verify the change actually exists (read relevant files)
    - Note any tasks with no visible evidence as WARNINGs
 
-5. **Spec alignment check** — read `.spec-driven/specs/` and `.spec-driven/changes/<name>/proposal.md`:
+5. **Spec alignment check** — read `.spec-driven/specs/`, `.spec-driven/config.yaml`, and `.spec-driven/changes/<name>/proposal.md`:
    - Does the implementation match what was proposed?
    - If behavior changed, were specs updated?
+   - If config.yaml has a `rules` field, check whether the implementation and artifacts comply — violations are WARNINGs
    - Flag misalignments as WARNINGs or CRITICALs
 
 6. **Output a tiered report**:

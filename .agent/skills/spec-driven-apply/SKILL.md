@@ -8,17 +8,17 @@ You are helping the user implement a spec-driven change.
 
 ## Steps
 
-1. **Select the change** — run `node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-apply/scripts/spec-driven.js modify` to list active changes. Ask which change to apply. If already specified, use it.
+1. **Select the change** — run `node .agent/skills/spec-driven-apply/scripts/spec-driven.js modify` to list active changes. Ask which change to apply. If already specified, use it.
 
 2. **Load context** — read all three artifacts:
    - `.spec-driven/changes/<name>/proposal.md` — what and why
    - `.spec-driven/changes/<name>/design.md` — approach and decisions
    - `.spec-driven/changes/<name>/tasks.md` — the checklist
-   Also read `.spec-driven/config.yaml` for project context and `.spec-driven/specs/` for current state specs.
+   Also read `.spec-driven/config.yaml` for project context and `.spec-driven/specs/` for current state specs. If config.yaml has a `rules` field, treat those rules as binding constraints throughout implementation.
 
 3. **Check task status** — run:
    ```
-   node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-apply/scripts/spec-driven.js apply <name>
+   node .agent/skills/spec-driven-apply/scripts/spec-driven.js apply <name>
    ```
    Show the user the task summary (total, complete, remaining).
 
@@ -29,7 +29,7 @@ You are helping the user implement a spec-driven change.
    - Briefly confirm what was done before moving to the next task
 
 5. **On completion** — when all tasks are done:
-   - Run `node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-apply/scripts/spec-driven.js apply <name>` again to confirm 0 remaining
+   - Run `node .agent/skills/spec-driven-apply/scripts/spec-driven.js apply <name>` again to confirm 0 remaining
    - Suggest running `/spec-driven-verify <name>` to verify the implementation
 
 ## Rules
