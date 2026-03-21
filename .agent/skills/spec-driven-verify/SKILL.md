@@ -8,17 +8,17 @@ You are helping the user verify a spec-driven change before archiving.
 
 ## Steps
 
-1. **Select the change** — run `node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-verify/scripts/modify.js` to list active changes. Ask which change to verify. If already specified, use it.
+1. **Select the change** — run `node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-verify/scripts/spec-driven.js modify` to list active changes. Ask which change to verify. If already specified, use it.
 
 2. **Format check** — run:
    ```
-   node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-verify/scripts/verify.js <name>
+   node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-verify/scripts/spec-driven.js verify <name>
    ```
    Report any errors (blocking) or warnings (non-blocking).
 
 3. **Task completion check** — run:
    ```
-   node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-verify/scripts/apply.js <name>
+   node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-verify/scripts/spec-driven.js apply <name>
    ```
    If `remaining > 0`, list the incomplete tasks. These are CRITICAL issues.
 

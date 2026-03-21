@@ -14,7 +14,7 @@ You are helping the user create a new spec-driven change proposal.
 
 3. **Scaffold the change** — run:
    ```
-   node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-propose/scripts/propose.js <name>
+   node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-propose/scripts/spec-driven.js propose <name>
    ```
    This creates `.spec-driven/changes/<name>/` with empty seed files.
 
