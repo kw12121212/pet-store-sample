@@ -27,6 +27,11 @@ rules:
     - Read existing code before modifying it
     - Implement only what the current task requires — no speculative features
     - No abstractions for hypothetical future needs (YAGNI)
+  test:
+    - Tests must verify observable behavior described in specs, not internal
+      implementation details
+    - Each test must be independent — no shared mutable state between tests
+    - Prefer real dependencies over mocks for code the project owns
 # fileMatch:              # per-pattern rules applied in addition to global rules above
 #   - pattern: "**/*.test.*"
 #     rules:
