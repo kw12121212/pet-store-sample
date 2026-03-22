@@ -21,6 +21,7 @@ You are helping the user verify a spec-driven change before archiving.
    node .agent/skills/spec-driven-verify/scripts/spec-driven.js apply <name>
    ```
    If `remaining > 0`, list the incomplete tasks. These are CRITICAL issues.
+   If the script warns about a missing `## Testing` section, this is also a CRITICAL — every change must include test tasks.
 
 4. **Clarification check** — scan proposal.md, design.md, and all delta spec files for `[NEEDS CLARIFICATION]` markers:
    - Any unresolved marker in proposal.md or design.md is a CRITICAL — implementation cannot proceed with ambiguous requirements

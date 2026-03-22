@@ -49,7 +49,8 @@ You are helping the user create a new spec-driven change proposal.
 7. **Fill tasks.md** — write a concrete implementation checklist:
    - Use `- [ ]` checkboxes for every task
    - Tasks should be independently completable
-   - Group tasks logically (e.g. Implementation, Tests, Docs, Verification)
+   - Group under three sections: `## Implementation`, `## Testing`, `## Verification`
+   - `## Testing` MUST include at least lint and unit test tasks appropriate to the project's tech stack (read from config.yaml context)
    - Do NOT add an "Update specs" task — the specs/ directory contains the spec artifacts
 
 8. **Confirm** — show the user the four files and ask if they want to adjust anything. If any `[NEEDS CLARIFICATION]` markers exist, list each one explicitly and ask the user to resolve them before proceeding to `/spec-driven-apply`.

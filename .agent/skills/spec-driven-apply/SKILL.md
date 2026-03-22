@@ -35,6 +35,7 @@ You are helping the user implement a spec-driven change.
    - Read relevant code before making changes
    - Implement the task
    - Verify the change does not violate any **Unchanged Behavior** listed in proposal.md
+   - For `## Testing` tasks: actually run the tests (lint, unit tests) and confirm they pass before marking complete
    - Mark it complete in tasks.md by changing `- [ ]` to `- [x]`
    - Briefly confirm what was done before moving to the next task
 

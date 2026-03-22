@@ -72,7 +72,7 @@ function propose() {
     fs.mkdirSync(path.join(dir, "specs"), { recursive: true });
     fs.writeFileSync(path.join(dir, "proposal.md"), `# ${name}\n\n## What\n\n[Describe what this change does]\n\n## Why\n\n[Describe the motivation and context]\n\n## Scope\n\n[List what is in scope and out of scope]\n\n## Unchanged Behavior\n\nBehaviors that must not change as a result of this change (leave blank if nothing is at risk):\n`);
     fs.writeFileSync(path.join(dir, "design.md"), `# Design: ${name}\n\n## Approach\n\n[Describe the implementation approach]\n\n## Key Decisions\n\n[List significant decisions and their rationale]\n\n## Alternatives Considered\n\n[Describe alternatives that were ruled out]\n`);
-    fs.writeFileSync(path.join(dir, "tasks.md"), `# Tasks: ${name}\n\n## Implementation\n\n- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3\n\n## Verification\n\n- [ ] Verify implementation matches proposal\n`);
+    fs.writeFileSync(path.join(dir, "tasks.md"), `# Tasks: ${name}\n\n## Implementation\n\n- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3\n\n## Testing\n\n- [ ] Lint passes\n- [ ] Unit tests pass\n\n## Verification\n\n- [ ] Verify implementation matches proposal\n`);
     console.log(`Created change: ${dir}`);
     console.log(`  ${path.join(dir, "proposal.md")}`);
     console.log(`  ${path.join(dir, "specs")}/ (populate to mirror .spec-driven/specs/ structure)`);
@@ -214,6 +214,9 @@ function verify() {
         else if (/^\s*-\s*\[ \]/im.test(tc)) {
             warnings.push("tasks.md has incomplete tasks");
         }
+        if (!/^## Testing/m.test(tc)) {
+            warnings.push("tasks.md has no '## Testing' section — changes should include test tasks");
+        }
     }
     console.log(JSON.stringify({ valid: errors.length === 0, warnings, errors }, null, 2));
 }
@@ -263,6 +266,7 @@ function init() {
         "      do not assume or guess",
         "    - Delta specs must reflect what was actually built, not the original plan",
         "    - Mark tasks [x] immediately upon completion — never batch at the end",
+        "    - Every change must include test tasks (lint + unit tests at minimum)",
         "  code:",
         "    - Read existing code before modifying it",
         "    - Implement only what the current task requires — no speculative features",

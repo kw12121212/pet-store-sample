@@ -16,12 +16,12 @@ You are helping the user initialize the spec-driven workflow in a project.
    ```
    Pass the path only if it differs from the current directory.
 
-3. **Guide config.yaml setup** — read the generated `.spec-driven/config.yaml`. Ask the user to describe their project briefly:
-   - What the project does (one sentence)
+3. **Draft context** — read any existing project files that describe the project (`README.md`, `AGENTS.md`, `CLAUDE.md`, `package.json`, `pom.xml`, etc.). Draft a `context` value of 3–5 sentences covering:
+   - What the project does
    - Tech stack and language(s)
    - Key conventions or constraints worth noting
 
-   Fill in the `context` field with 3–5 sentences based on their answers.
+   Write the draft into the `context` field of `.spec-driven/config.yaml`, then show it to the user and ask if they want to adjust anything.
 
 4. **Capture existing behavior** — ask: "Does this project already have behavior worth documenting?" If yes, help the user write initial spec files under `.spec-driven/specs/<category>/` using the standard format:
    - Group by domain area (e.g. `auth/`, `api/`, `core/`)
