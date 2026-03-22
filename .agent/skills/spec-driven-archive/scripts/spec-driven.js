@@ -21,6 +21,16 @@ function requireChange(name) {
     }
     return dir;
 }
+function findMdFiles(dir, base = "") {
+    if (!fs.existsSync(dir))
+        return [];
+    return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+        const rel = base ? `${base}/${e.name}` : e.name;
+        if (e.isDirectory())
+            return findMdFiles(path.join(dir, e.name), rel);
+        return e.name.endsWith(".md") ? [rel] : [];
+    });
+}
 switch (command) {
     case "propose":
         propose();
@@ -59,12 +69,13 @@ function propose() {
         console.error(`Error: change '${name}' already exists at ${dir}`);
         process.exit(1);
     }
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, "proposal.md"), `# ${name}\n\n## What\n\n[Describe what this change does]\n\n## Why\n\n[Describe the motivation and context]\n\n## Scope\n\n[List what is in scope and out of scope]\n`);
+    fs.mkdirSync(path.join(dir, "specs"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "proposal.md"), `# ${name}\n\n## What\n\n[Describe what this change does]\n\n## Why\n\n[Describe the motivation and context]\n\n## Scope\n\n[List what is in scope and out of scope]\n\n## Unchanged Behavior\n\nBehaviors that must not change as a result of this change (leave blank if nothing is at risk):\n`);
     fs.writeFileSync(path.join(dir, "design.md"), `# Design: ${name}\n\n## Approach\n\n[Describe the implementation approach]\n\n## Key Decisions\n\n[List significant decisions and their rationale]\n\n## Alternatives Considered\n\n[Describe alternatives that were ruled out]\n`);
-    fs.writeFileSync(path.join(dir, "tasks.md"), `# Tasks: ${name}\n\n## Implementation\n\n- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3\n\n## Verification\n\n- [ ] Verify implementation matches proposal\n- [ ] Update specs if behavior changed\n`);
+    fs.writeFileSync(path.join(dir, "tasks.md"), `# Tasks: ${name}\n\n## Implementation\n\n- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3\n\n## Verification\n\n- [ ] Verify implementation matches proposal\n`);
     console.log(`Created change: ${dir}`);
     console.log(`  ${path.join(dir, "proposal.md")}`);
+    console.log(`  ${path.join(dir, "specs")}/ (populate to mirror .spec-driven/specs/ structure)`);
     console.log(`  ${path.join(dir, "design.md")}`);
     console.log(`  ${path.join(dir, "tasks.md")}`);
 }
@@ -99,6 +110,16 @@ function modify() {
         const p = path.join(dir, artifact);
         console.log(`  ${p}${fs.existsSync(p) ? "" : " (missing)"}`);
     }
+    const specsDir = path.join(dir, "specs");
+    const specFiles = findMdFiles(specsDir);
+    if (specFiles.length === 0) {
+        console.log(`  ${specsDir}/ (empty)`);
+    }
+    else {
+        for (const f of specFiles) {
+            console.log(`  ${path.join(specsDir, f)}`);
+        }
+    }
 }
 function apply() {
     const name = requireName("apply");
@@ -129,6 +150,42 @@ function verify() {
         console.log(JSON.stringify({ valid: false, warnings, errors }, null, 2));
         process.exit(0);
     }
+    const specsDir = path.join(dir, "specs");
+    if (!fs.existsSync(specsDir)) {
+        errors.push("Missing required directory: specs/");
+    }
+    else {
+        const specFiles = findMdFiles(specsDir);
+        if (specFiles.length === 0) {
+            warnings.push("specs/ is empty — add delta files mirroring the main .spec-driven/specs/ structure");
+        }
+        else {
+            const skipLines = new Set([
+                "Leave a section empty if it does not apply.",
+                "Use RFC 2119 keywords: MUST (required), SHOULD (recommended), MAY (optional).",
+            ]);
+            for (const file of specFiles) {
+                const raw = fs.readFileSync(path.join(specsDir, file), "utf-8");
+                const stripped = raw.replace(/<!--[\s\S]*?-->/g, "");
+                const hasContent = stripped.split("\n").some((l) => {
+                    const t = l.trim();
+                    return t && !t.startsWith("#") && !skipLines.has(t);
+                });
+                if (!hasContent) {
+                    warnings.push(`specs/${file} has no content`);
+                }
+                else if (!/^### Requirement:/m.test(stripped)) {
+                    errors.push(`specs/${file} has content but no '### Requirement:' headings — use the spec format`);
+                }
+                else if (!/^## (ADDED|MODIFIED|REMOVED) Requirements$/m.test(stripped)) {
+                    errors.push(`specs/${file} is missing section marker — add '## ADDED Requirements', '## MODIFIED Requirements', or '## REMOVED Requirements' before each group of requirements`);
+                }
+                if (raw.includes("[NEEDS CLARIFICATION")) {
+                    warnings.push(`specs/${file} has unresolved [NEEDS CLARIFICATION] markers`);
+                }
+            }
+        }
+    }
     for (const file of ["proposal.md", "design.md", "tasks.md"]) {
         const p = path.join(dir, file);
         if (!fs.existsSync(p)) {
@@ -142,6 +199,9 @@ function verify() {
         }
         if (content.includes("[Describe") || content.includes("[List")) {
             warnings.push(`${file} contains unfilled placeholders`);
+        }
+        if (content.includes("[NEEDS CLARIFICATION")) {
+            warnings.push(`${file} has unresolved [NEEDS CLARIFICATION] markers`);
         }
     }
     const tasksPath = path.join(dir, "tasks.md");
@@ -184,11 +244,40 @@ function init() {
         process.exit(1);
     }
     fs.mkdirSync(path.join(specDir, "changes"), { recursive: true });
-    fs.mkdirSync(path.join(specDir, "specs", "core"), { recursive: true });
-    fs.writeFileSync(path.join(specDir, "config.yaml"), `schema: spec-driven\ncontext: |\n  [Project context — populated by user, injected into skill prompts]\nrules:\n  specs:\n    - Requirements specify observable behavior, not implementation details\n  tasks:\n    - Tasks should be independently completable\n`);
-    fs.writeFileSync(path.join(specDir, "specs", "README.md"), `# Specs\n\nSpecs describe the current state of the system — what it does, not how it was built.\n\n## Organization\n\nGroup specs by domain area. Use kebab-case directory names (e.g. \`core/\`, \`api/\`, \`auth/\`).\n\n## Conventions\n\n- Write in present tense ("the system does X")\n- Describe observable behavior, not implementation details\n- Keep each spec focused on one area\n`);
+    fs.mkdirSync(path.join(specDir, "specs"), { recursive: true });
+    fs.writeFileSync(path.join(specDir, "config.yaml"), [
+        "schema: spec-driven",
+        "context: |",
+        "  [Project context — populated by user, injected into skill prompts]",
+        "rules:",
+        "  specs:",
+        "    - Describe observable behavior only — no implementation details, technology",
+        "      choices, or internal structure",
+        "    - MUST = required with no exceptions; SHOULD = default unless explicitly",
+        "      justified; MAY = genuinely optional",
+        "    - Each requirement must be independently verifiable from outside the system",
+        "  change:",
+        "    - Implement only what is in scope in proposal.md — if scope needs to expand,",
+        "      use /spec-driven-modify first, never expand silently",
+        "    - When a requirement or task is ambiguous, ask the user before proceeding —",
+        "      do not assume or guess",
+        "    - Delta specs must reflect what was actually built, not the original plan",
+        "    - Mark tasks [x] immediately upon completion — never batch at the end",
+        "  code:",
+        "    - Read existing code before modifying it",
+        "    - Implement only what the current task requires — no speculative features",
+        "    - No abstractions for hypothetical future needs (YAGNI)",
+        "# fileMatch:              # per-pattern rules applied in addition to global rules above",
+        "#   - pattern: \"**/*.test.*\"",
+        "#     rules:",
+        "#       - Tests must cover happy path, error cases, and edge cases",
+        "",
+    ].join("\n"));
+    fs.writeFileSync(path.join(specDir, "specs", "INDEX.md"), `# Specs Index\n\n<!-- One entry per spec file. Updated by /spec-driven-archive after each change. -->\n`);
+    fs.writeFileSync(path.join(specDir, "specs", "README.md"), `# Specs\n\nSpecs describe the current state of the system — what it does, not how it was built.\n\n## Format\n\n\`\`\`markdown\n### Requirement: <name>\nThe system MUST/SHOULD/MAY <observable behavior>.\n\n#### Scenario: <name>\n- GIVEN <precondition>\n- WHEN <action>\n- THEN <expected outcome>\n\`\`\`\n\n**Keywords**: MUST = required, SHOULD = recommended, MAY = optional (RFC 2119).\n\n## Organization\n\nGroup specs by domain area. Use kebab-case directory names (e.g. \`core/\`, \`api/\`, \`auth/\`).\n\n## Conventions\n\n- Write in present tense ("the system does X")\n- Describe observable behavior, not implementation details\n- Keep each spec focused on one area\n`);
     console.log(`Initialized: ${specDir}`);
     console.log(`  ${path.join(specDir, "config.yaml")}`);
+    console.log(`  ${path.join(specDir, "specs", "INDEX.md")}`);
     console.log(`  ${path.join(specDir, "specs", "README.md")}`);
     console.log(`  Edit config.yaml to add project context`);
 }

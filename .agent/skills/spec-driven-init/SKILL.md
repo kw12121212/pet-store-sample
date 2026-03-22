@@ -12,7 +12,7 @@ You are helping the user initialize the spec-driven workflow in a project.
 
 2. **Run init** — run:
    ```
-   node /home/code/Code/pet-store-sample/.agent/skills/spec-driven-init/scripts/spec-driven.js init [path]
+   node .agent/skills/spec-driven-init/scripts/spec-driven.js init [path]
    ```
    Pass the path only if it differs from the current directory.
 
@@ -23,7 +23,15 @@ You are helping the user initialize the spec-driven workflow in a project.
 
    Fill in the `context` field with 3–5 sentences based on their answers.
 
-4. **Confirm** — show the user what was created and suggest running `/spec-driven-propose` to create their first change.
+4. **Capture existing behavior** — ask: "Does this project already have behavior worth documenting?" If yes, help the user write initial spec files under `.spec-driven/specs/<category>/` using the standard format:
+   - Group by domain area (e.g. `auth/`, `api/`, `core/`)
+   - Use `### Requirement: <name>` headings with RFC 2119 keywords
+   - Describe what the system currently does, not what it should do
+   - Add an entry for each new file to `.spec-driven/specs/INDEX.md`
+
+   This step is important for existing projects — without initial specs, `propose` has nothing to read and cannot detect conflicts.
+
+5. **Confirm** — show the user what was created and suggest running `/spec-driven-propose` to create their first change.
 
 ## Rules
 - Do not create any changes — initialization only

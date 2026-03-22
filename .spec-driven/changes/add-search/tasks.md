@@ -14,4 +14,3 @@
 - [ ] 访问 `/service/search_service/searchItems?keyword=large`，返回包含 `attr1=Large` 的 Item
 - [ ] 关键词大小写不敏感：`keyword=FISH` 与 `keyword=fish` 返回相同结果
 - [ ] 无匹配时返回空数组（`{"products":[]}`），而非报错
-- [ ] Update specs in .spec-driven/specs/ if behavior changed

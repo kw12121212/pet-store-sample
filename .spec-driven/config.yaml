@@ -1,8 +1,32 @@
 schema: spec-driven
 context: |
-  [Project context — populated by user, injected into skill prompts]
+  Pet Store backend built with Lealone-Platform (Java 21, Maven). Lealone is SQL-first:
+  table definitions in `petstore-model/sql/tables.sql` auto-generate ORM model classes
+  (do not edit by hand); service signatures in `petstore-service/sql/services.sql`
+  auto-expose Java methods as HTTP endpoints at `/service/<service>/<method>` — no XML,
+  no annotations, no Controller. Three modules: `petstore-model` (DDL + generated ORM),
+  `petstore-service` (service implementations), `petstore-main` (entry point). To add a
+  feature: declare it in `services.sql`, implement the Java class — no other wiring needed.
+  Package root: `com.lealone.examples.petstore`; services follow `<Domain>Service` naming.
 rules:
   specs:
-    - Requirements specify observable behavior, not implementation details
-  tasks:
-    - Tasks should be independently completable
+    - Describe observable behavior only — no implementation details, technology
+      choices, or internal structure
+    - MUST = required with no exceptions; SHOULD = default unless explicitly
+      justified; MAY = genuinely optional
+    - Each requirement must be independently verifiable from outside the system
+  change:
+    - Implement only what is in scope in proposal.md — if scope needs to expand,
+      use /spec-driven-modify first, never expand silently
+    - When a requirement or task is ambiguous, ask the user before proceeding —
+      do not assume or guess
+    - Delta specs must reflect what was actually built, not the original plan
+    - Mark tasks [x] immediately upon completion — never batch at the end
+  code:
+    - Read existing code before modifying it
+    - Implement only what the current task requires — no speculative features
+    - No abstractions for hypothetical future needs (YAGNI)
+# fileMatch:              # per-pattern rules applied in addition to global rules above
+#   - pattern: "**/*.test.*"
+#     rules:
+#       - Tests must cover happy path, error cases, and edge cases

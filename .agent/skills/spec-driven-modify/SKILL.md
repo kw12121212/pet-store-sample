@@ -1,6 +1,6 @@
 ---
 name: spec-driven-modify
-description: Modify an existing spec-driven change artifact (proposal.md, design.md, or tasks.md). Preserves completed task state.
+description: Modify an existing spec-driven change artifact (proposal.md, specs/ delta files, design.md, or tasks.md). Preserves completed task state.
 version: 0.1.0
 ---
 
@@ -10,7 +10,7 @@ You are helping the user modify an existing spec-driven change artifact.
 
 1. **Select the change** — run `node .agent/skills/spec-driven-modify/scripts/spec-driven.js modify` to list active changes. Ask the user which change they want to modify. If they already specified one, use it.
 
-2. **Select the artifact** — run `node .agent/skills/spec-driven-modify/scripts/spec-driven.js modify <name>` to show artifact paths. Ask the user which artifact to modify: `proposal.md`, `design.md`, or `tasks.md`.
+2. **Select the artifact** — run `node .agent/skills/spec-driven-modify/scripts/spec-driven.js modify <name>` to show artifact paths. Ask the user which artifact to modify: `proposal.md`, a file in `specs/`, `design.md`, or `tasks.md`.
 
 3. **Read the current content** — read the selected artifact file.
 
