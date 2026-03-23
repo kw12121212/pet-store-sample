@@ -24,14 +24,15 @@ You are running the full spec-driven workflow end-to-end for a single change.
 
 2. **Propose** — run `/spec-driven-propose`:
    - Run `node .agent/skills/spec-driven-auto/scripts/spec-driven.js propose <name>`
-   - Fill all artifacts: proposal.md (with Unchanged Behavior), specs/ delta files, design.md, tasks.md (with ## Testing)
-   - Show the user a summary: scope, key decisions, task count, and unchanged behaviors
+   - Fill all artifacts: proposal.md (with Unchanged Behavior), specs/ delta files, design.md, tasks.md (with ## Testing), questions.md (open questions)
+   - Show the user a summary: scope, key decisions, task count, unchanged behaviors, and any open questions
    - **Wait for explicit confirmation** before proceeding — this is the only mandatory checkpoint
+   - If questions.md has open questions, list them and ask the user to resolve them before confirming
    - If the user requests changes, apply them and re-confirm
 
 3. **Apply** — implement all tasks:
    - Run `node .agent/skills/spec-driven-auto/scripts/spec-driven.js apply <name>` to show task summary
-   - Check for `[NEEDS CLARIFICATION]` markers — if any, ask the user and resolve before continuing
+   - Check questions.md for open `- [ ] Q:` entries — if any, ask the user and resolve before continuing
    - Work through each `- [ ]` task in order: read code, implement, verify Unchanged Behavior, mark `- [x]`
    - For `## Testing` tasks: actually run the tests and confirm they pass
    - Run `node .agent/skills/spec-driven-auto/scripts/spec-driven.js apply <name>` to confirm `remaining === 0`

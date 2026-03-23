@@ -35,6 +35,7 @@ You are helping the user archive a completed spec-driven change.
    ```
    node .agent/skills/spec-driven-archive/scripts/spec-driven.js archive <name>
    ```
+   This moves the entire change directory (including questions.md) to the archive.
 
 6. **Confirm** — report the result:
    - Where the change was moved to (e.g. `.spec-driven/changes/archive/2024-01-15-<name>/`)

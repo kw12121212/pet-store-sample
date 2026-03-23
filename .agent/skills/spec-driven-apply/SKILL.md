@@ -15,6 +15,7 @@ You are helping the user implement a spec-driven change.
    - `.spec-driven/changes/<name>/specs/` — delta spec files (mirror of main specs/ structure)
    - `.spec-driven/changes/<name>/design.md` — approach and decisions
    - `.spec-driven/changes/<name>/tasks.md` — the checklist
+   - `.spec-driven/changes/<name>/questions.md` — open and resolved questions
    Also read:
    - `.spec-driven/config.yaml` — project context; treat `rules` as binding constraints; if `fileMatch` entries are present, apply matching rules when editing files whose paths match the glob pattern
    - `.spec-driven/specs/INDEX.md` — identifies all existing spec files
@@ -26,10 +27,10 @@ You are helping the user implement a spec-driven change.
    ```
    Show the user the task summary (total, complete, remaining).
 
-4. **Check for unresolved markers** — scan proposal.md, design.md, and all delta spec files for `[NEEDS CLARIFICATION]` markers:
-   - If any are found, list each one and **stop** — do not proceed to implementation
-   - Ask the user to resolve the ambiguities (edit the artifacts directly or use `/spec-driven-modify`)
-   - Only continue once all markers are resolved
+4. **Check for open questions** — read `questions.md` and scan for `- [ ] Q:` entries:
+   - If any open questions are found, list each one and **stop** — do not proceed to implementation
+   - Ask the user to resolve the questions (edit questions.md directly or use `/spec-driven-modify`)
+   - Only continue once all questions are resolved (moved to `## Resolved` with an `A:` answer)
 
 5. **Implement tasks** — work through each `- [ ]` task in order:
    - Read relevant code before making changes

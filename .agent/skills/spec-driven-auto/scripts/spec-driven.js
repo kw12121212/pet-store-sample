@@ -129,26 +129,23 @@ function propose() {
     fs.writeFileSync(path.join(dir, "proposal.md"), `# ${name}\n\n## What\n\n[Describe what this change does]\n\n## Why\n\n[Describe the motivation and context]\n\n## Scope\n\n[List what is in scope and out of scope]\n\n## Unchanged Behavior\n\nBehaviors that must not change as a result of this change (leave blank if nothing is at risk):\n`);
     fs.writeFileSync(path.join(dir, "design.md"), `# Design: ${name}\n\n## Approach\n\n[Describe the implementation approach]\n\n## Key Decisions\n\n[List significant decisions and their rationale]\n\n## Alternatives Considered\n\n[Describe alternatives that were ruled out]\n`);
     fs.writeFileSync(path.join(dir, "tasks.md"), `# Tasks: ${name}\n\n## Implementation\n\n- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3\n\n## Testing\n\n- [ ] Lint passes\n- [ ] Unit tests pass\n\n## Verification\n\n- [ ] Verify implementation matches proposal\n`);
+    fs.writeFileSync(path.join(dir, "questions.md"), `# Questions: ${name}\n\n## Open\n\n<!-- Add open questions here using the format below -->\n<!-- - [ ] Q: <question text> -->\n<!--   Context: <why this matters / what depends on the answer> -->\n\n## Resolved\n\n<!-- Resolved questions are moved here with their answers -->\n<!-- - [x] Q: <question text> -->\n<!--   Context: <why this matters> -->\n<!--   A: <answer from human> -->\n`);
     console.log(`Created change: ${dir}`);
     console.log(`  ${path.join(dir, "proposal.md")}`);
     console.log(`  ${path.join(dir, "specs")}/ (populate to mirror .spec-driven/specs/ structure)`);
     console.log(`  ${path.join(dir, "design.md")}`);
     console.log(`  ${path.join(dir, "tasks.md")}`);
+    console.log(`  ${path.join(dir, "questions.md")}`);
 }
 function getStatus(name) {
     const dir = changeDir(name);
-    // Check for [NEEDS CLARIFICATION] markers
-    for (const file of ["proposal.md", "design.md"]) {
-        const p = path.join(dir, file);
-        if (fs.existsSync(p) && fs.readFileSync(p, "utf-8").includes("[NEEDS CLARIFICATION")) {
+    // Check questions.md for open (unanswered) questions
+    const questionsPath = path.join(dir, "questions.md");
+    if (fs.existsSync(questionsPath)) {
+        const qc = fs.readFileSync(questionsPath, "utf-8");
+        const hasOpenQuestion = qc.split("\n").some((l) => /^\s*-\s*\[ \]\s+Q:/i.test(l));
+        if (hasOpenQuestion)
             return "blocked";
-        }
-    }
-    const specsDir = path.join(dir, "specs");
-    for (const f of findMdFiles(specsDir)) {
-        if (fs.readFileSync(path.join(specsDir, f), "utf-8").includes("[NEEDS CLARIFICATION")) {
-            return "blocked";
-        }
     }
     // Check task completion
     const tasksPath = path.join(dir, "tasks.md");
@@ -200,7 +197,7 @@ function modify() {
         process.exit(1);
     }
     console.log(`Artifacts for '${name}':`);
-    for (const artifact of ["proposal.md", "design.md", "tasks.md"]) {
+    for (const artifact of ["proposal.md", "design.md", "tasks.md", "questions.md"]) {
         const p = path.join(dir, artifact);
         console.log(`  ${p}${fs.existsSync(p) ? "" : " (missing)"}`);
     }
@@ -274,13 +271,10 @@ function verify() {
                 else if (!/^## (ADDED|MODIFIED|REMOVED) Requirements$/m.test(stripped)) {
                     errors.push(`specs/${file} is missing section marker — add '## ADDED Requirements', '## MODIFIED Requirements', or '## REMOVED Requirements' before each group of requirements`);
                 }
-                if (raw.includes("[NEEDS CLARIFICATION")) {
-                    warnings.push(`specs/${file} has unresolved [NEEDS CLARIFICATION] markers`);
-                }
             }
         }
     }
-    for (const file of ["proposal.md", "design.md", "tasks.md"]) {
+    for (const file of ["proposal.md", "design.md", "tasks.md", "questions.md"]) {
         const p = path.join(dir, file);
         if (!fs.existsSync(p)) {
             errors.push(`Missing required artifact: ${file}`);
@@ -291,11 +285,17 @@ function verify() {
             errors.push(`Empty artifact: ${file}`);
             continue;
         }
-        if (content.includes("[Describe") || content.includes("[List")) {
+        if (file !== "questions.md" && (content.includes("[Describe") || content.includes("[List"))) {
             warnings.push(`${file} contains unfilled placeholders`);
         }
-        if (content.includes("[NEEDS CLARIFICATION")) {
-            warnings.push(`${file} has unresolved [NEEDS CLARIFICATION] markers`);
+    }
+    // Check questions.md for open (unanswered) questions
+    const questionsPath = path.join(dir, "questions.md");
+    if (fs.existsSync(questionsPath)) {
+        const qc = fs.readFileSync(questionsPath, "utf-8");
+        const hasOpenQuestion = qc.split("\n").some((l) => /^\s*-\s*\[ \]\s+Q:/i.test(l));
+        if (hasOpenQuestion) {
+            errors.push("questions.md has open (unanswered) questions — resolve all questions before archiving");
         }
     }
     const tasksPath = path.join(dir, "tasks.md");

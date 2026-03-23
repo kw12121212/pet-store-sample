@@ -1,6 +1,6 @@
 ---
 name: spec-driven-propose
-description: Propose a new spec-driven change. Scaffolds proposal.md, design.md, and tasks.md for a named change, populated with project context.
+description: Propose a new spec-driven change. Scaffolds proposal.md, design.md, tasks.md, and questions.md for a named change, populated with project context.
 version: 0.1.0
 ---
 
@@ -27,14 +27,10 @@ You are helping the user create a new spec-driven change proposal.
    - **Scope**: What is in scope, what is explicitly out of scope
    - **Unchanged Behavior**: List existing behaviors that must not break — things adjacent to or potentially affected by this change. Leave blank if truly nothing is at risk.
 
-   If the user's description leaves anything unclear — motivation, scope boundaries, success criteria — mark it with `[NEEDS CLARIFICATION: <specific question>]` rather than assuming. Do not fill in details you are not certain about.
-
 5. **Fill design.md** — write the technical approach:
    - **Approach**: How you'll implement it at a high level
    - **Key Decisions**: Significant choices and their rationale
    - **Alternatives Considered**: What was ruled out and why
-
-   If a technical decision depends on unclear requirements or constraints, mark it with `[NEEDS CLARIFICATION: <specific question>]` rather than committing to an approach that may be wrong.
 
 6. **Populate specs/ delta files** — look at the project's `.spec-driven/specs/` directory structure. For each spec file that this change touches, create a corresponding file under `.spec-driven/changes/<name>/specs/` mirroring the same relative path (e.g. `specs/auth/login.md` → `changes/<name>/specs/auth/login.md`).
 
@@ -43,7 +39,6 @@ You are helping the user create a new spec-driven change proposal.
    - `#### Scenario:` blocks (GIVEN/WHEN/THEN) where helpful
    - **ADDED**: new requirements; **MODIFIED**: changed requirements (include `Previously:` note); **REMOVED**: removed requirements (include reason)
    - Omit sections that don't apply — do not leave empty sections
-   - If you cannot determine the correct classification due to unclear requirements, mark it with `[NEEDS CLARIFICATION: <question>]`
    - If this change has no observable spec impact, create a file with a brief explanation
 
 7. **Fill tasks.md** — write a concrete implementation checklist:
@@ -53,10 +48,19 @@ You are helping the user create a new spec-driven change proposal.
    - `## Testing` MUST include at least lint and unit test tasks appropriate to the project's tech stack (read from config.yaml context)
    - Do NOT add an "Update specs" task — the specs/ directory contains the spec artifacts
 
-8. **Confirm** — show the user the four files and ask if they want to adjust anything. If any `[NEEDS CLARIFICATION]` markers exist, list each one explicitly and ask the user to resolve them before proceeding to `/spec-driven-apply`.
+8. **Fill questions.md** — document any open questions or ambiguities:
+   - For every unclear point (motivation, scope boundaries, technical approach, etc.), add an entry under `## Open`:
+     ```
+     - [ ] Q: <specific question>
+       Context: <why this matters / what depends on the answer>
+     ```
+   - If everything is clear, leave `## Open` empty with a note: `<!-- No open questions -->`
+   - Do NOT use `[NEEDS CLARIFICATION]` inline markers in any artifact — questions.md is the single place for all open questions
+
+9. **Confirm** — show the user the five files and ask if they want to adjust anything. If `questions.md` has open questions, list each one explicitly and ask the user to resolve them before proceeding to `/spec-driven-apply`.
 
 ## Rules
 - Do not implement anything — this is planning only
 - Keep tasks atomic and verifiable
-- proposal.md describes *what and why*; design.md describes *how*; tasks.md is the checklist
-- Mark ambiguities with `[NEEDS CLARIFICATION: <specific question>]` — never guess at unclear requirements
+- proposal.md describes *what and why*; design.md describes *how*; tasks.md is the checklist; questions.md is for open questions
+- Document ambiguities in questions.md — never guess at unclear requirements, and never use `[NEEDS CLARIFICATION]` inline markers
