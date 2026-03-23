@@ -3,6 +3,56 @@ import fs from "fs";
 import path from "path";
 const [command, ...args] = process.argv.slice(2);
 const changesDir = path.join(".spec-driven", "changes");
+const INIT_CONFIG_YAML = [
+    "schema: spec-driven",
+    "context: |",
+    "  [Project context — populated by user, injected into skill prompts]",
+    "rules:",
+    "  specs:",
+    "    - Describe observable behavior only — no implementation details, technology",
+    "      choices, or internal structure",
+    "    - MUST = required with no exceptions; SHOULD = default unless explicitly",
+    "      justified; MAY = genuinely optional",
+    "    - Each requirement must be independently verifiable from outside the system",
+    "  change:",
+    "    - Implement only what is in scope in proposal.md — if scope needs to expand,",
+    "      use /spec-driven-modify first, never expand silently",
+    "    - When a requirement or task is ambiguous, ask the user before proceeding —",
+    "      do not assume or guess",
+    "    - Delta specs must reflect what was actually built, not the original plan",
+    "    - Mark tasks [x] immediately upon completion — never batch at the end",
+    "    - Every change must include test tasks (lint + unit tests at minimum)",
+    "  code:",
+    "    - Read existing code before modifying it",
+    "    - Implement only what the current task requires — no speculative features",
+    "    - No abstractions for hypothetical future needs (YAGNI)",
+    "  test:",
+    "    - Tests must verify observable behavior described in specs, not internal",
+    "      implementation details",
+    "    - Each test must be independent — no shared mutable state between tests",
+    "    - Prefer real dependencies over mocks for code the project owns",
+    "# fileMatch:              # per-pattern rules applied in addition to global rules above",
+    "#   - pattern: \"**/*.test.*\"",
+    "#     rules:",
+    "#       - Tests must cover happy path, error cases, and edge cases",
+    "",
+].join("\n");
+const INIT_INDEX_MD = `# Specs Index\n\n<!-- One entry per spec file. Updated by /spec-driven-archive after each change. -->\n`;
+const INIT_README_MD = `# Specs\n\nSpecs describe the current state of the system — what it does, not how it was built.\n\n## Format\n\n\`\`\`markdown\n### Requirement: <name>\nThe system MUST/SHOULD/MAY <observable behavior>.\n\n#### Scenario: <name>\n- GIVEN <precondition>\n- WHEN <action>\n- THEN <expected outcome>\n\`\`\`\n\n**Keywords**: MUST = required, SHOULD = recommended, MAY = optional (RFC 2119).\n\n## Organization\n\nGroup specs by domain area. Use kebab-case directory names (e.g. \`core/\`, \`api/\`, \`auth/\`).\n\n## Conventions\n\n- Write in present tense ("the system does X")\n- Describe observable behavior, not implementation details\n- Keep each spec focused on one area\n`;
+const supportedMigrationTools = [
+    {
+        name: "claude",
+        rootDir: ".claude",
+        skillsDir: path.join(".claude", "skills"),
+        commandsDir: path.join(".claude", "commands"),
+    },
+    {
+        name: "opencode",
+        rootDir: ".opencode",
+        skillsDir: path.join(".opencode", "skills"),
+        commandsDir: path.join(".opencode", "commands"),
+    },
+];
 function changeDir(name) {
     return path.join(changesDir, name);
 }
@@ -53,9 +103,15 @@ switch (command) {
     case "init":
         init();
         break;
+    case "migrate":
+        migrate();
+        break;
+    case "list":
+        list();
+        break;
     default:
         console.error("Usage: node spec-driven.js <command> [args]");
-        console.error("Commands: propose, modify, apply, verify, archive, cancel, init");
+        console.error("Commands: propose, modify, apply, verify, archive, cancel, init, migrate, list");
         process.exit(1);
 }
 function propose() {
@@ -79,6 +135,44 @@ function propose() {
     console.log(`  ${path.join(dir, "design.md")}`);
     console.log(`  ${path.join(dir, "tasks.md")}`);
 }
+function getStatus(name) {
+    const dir = changeDir(name);
+    // Check for [NEEDS CLARIFICATION] markers
+    for (const file of ["proposal.md", "design.md"]) {
+        const p = path.join(dir, file);
+        if (fs.existsSync(p) && fs.readFileSync(p, "utf-8").includes("[NEEDS CLARIFICATION")) {
+            return "blocked";
+        }
+    }
+    const specsDir = path.join(dir, "specs");
+    for (const f of findMdFiles(specsDir)) {
+        if (fs.readFileSync(path.join(specsDir, f), "utf-8").includes("[NEEDS CLARIFICATION")) {
+            return "blocked";
+        }
+    }
+    // Check task completion
+    const tasksPath = path.join(dir, "tasks.md");
+    if (!fs.existsSync(tasksPath))
+        return "proposed";
+    const content = fs.readFileSync(tasksPath, "utf-8");
+    let total = 0, complete = 0;
+    for (const line of content.split("\n")) {
+        if (/^\s*-\s*\[x\]\s+/i.test(line)) {
+            total++;
+            complete++;
+        }
+        else if (/^\s*-\s*\[ \]\s+/i.test(line)) {
+            total++;
+        }
+    }
+    if (total === 0)
+        return "proposed";
+    if (complete === 0)
+        return "proposed";
+    if (complete === total)
+        return "done";
+    return `in-progress (${complete}/${total})`;
+}
 function modify() {
     const name = args[0];
     if (!name) {
@@ -96,7 +190,7 @@ function modify() {
         else {
             console.log("Active changes:");
             for (const c of changes)
-                console.log(`  ${c}`);
+                console.log(`  ${c}    ${getStatus(c)}`);
         }
         process.exit(0);
     }
@@ -248,40 +342,246 @@ function init() {
     }
     fs.mkdirSync(path.join(specDir, "changes"), { recursive: true });
     fs.mkdirSync(path.join(specDir, "specs"), { recursive: true });
-    fs.writeFileSync(path.join(specDir, "config.yaml"), [
-        "schema: spec-driven",
-        "context: |",
-        "  [Project context — populated by user, injected into skill prompts]",
-        "rules:",
-        "  specs:",
-        "    - Describe observable behavior only — no implementation details, technology",
-        "      choices, or internal structure",
-        "    - MUST = required with no exceptions; SHOULD = default unless explicitly",
-        "      justified; MAY = genuinely optional",
-        "    - Each requirement must be independently verifiable from outside the system",
-        "  change:",
-        "    - Implement only what is in scope in proposal.md — if scope needs to expand,",
-        "      use /spec-driven-modify first, never expand silently",
-        "    - When a requirement or task is ambiguous, ask the user before proceeding —",
-        "      do not assume or guess",
-        "    - Delta specs must reflect what was actually built, not the original plan",
-        "    - Mark tasks [x] immediately upon completion — never batch at the end",
-        "    - Every change must include test tasks (lint + unit tests at minimum)",
-        "  code:",
-        "    - Read existing code before modifying it",
-        "    - Implement only what the current task requires — no speculative features",
-        "    - No abstractions for hypothetical future needs (YAGNI)",
-        "# fileMatch:              # per-pattern rules applied in addition to global rules above",
-        "#   - pattern: \"**/*.test.*\"",
-        "#     rules:",
-        "#       - Tests must cover happy path, error cases, and edge cases",
-        "",
-    ].join("\n"));
-    fs.writeFileSync(path.join(specDir, "specs", "INDEX.md"), `# Specs Index\n\n<!-- One entry per spec file. Updated by /spec-driven-archive after each change. -->\n`);
-    fs.writeFileSync(path.join(specDir, "specs", "README.md"), `# Specs\n\nSpecs describe the current state of the system — what it does, not how it was built.\n\n## Format\n\n\`\`\`markdown\n### Requirement: <name>\nThe system MUST/SHOULD/MAY <observable behavior>.\n\n#### Scenario: <name>\n- GIVEN <precondition>\n- WHEN <action>\n- THEN <expected outcome>\n\`\`\`\n\n**Keywords**: MUST = required, SHOULD = recommended, MAY = optional (RFC 2119).\n\n## Organization\n\nGroup specs by domain area. Use kebab-case directory names (e.g. \`core/\`, \`api/\`, \`auth/\`).\n\n## Conventions\n\n- Write in present tense ("the system does X")\n- Describe observable behavior, not implementation details\n- Keep each spec focused on one area\n`);
+    fs.writeFileSync(path.join(specDir, "config.yaml"), INIT_CONFIG_YAML);
+    fs.writeFileSync(path.join(specDir, "specs", "INDEX.md"), INIT_INDEX_MD);
+    fs.writeFileSync(path.join(specDir, "specs", "README.md"), INIT_README_MD);
     console.log(`Initialized: ${specDir}`);
     console.log(`  ${path.join(specDir, "config.yaml")}`);
     console.log(`  ${path.join(specDir, "specs", "INDEX.md")}`);
     console.log(`  ${path.join(specDir, "specs", "README.md")}`);
     console.log(`  Edit config.yaml to add project context`);
+}
+function migrate() {
+    const targetDir = args[0] ? path.resolve(args[0]) : process.cwd();
+    if (!fs.existsSync(targetDir) || !fs.statSync(targetDir).isDirectory()) {
+        console.error(`Error: target directory not found: ${targetDir}`);
+        process.exit(1);
+    }
+    const bundledSkillsDir = resolveBundledSkillsDir();
+    if (!bundledSkillsDir) {
+        console.error("Error: bundled spec-driven skills not found next to this script");
+        process.exit(1);
+    }
+    const bundledScriptPath = resolveBundledScriptPath();
+    if (!bundledScriptPath) {
+        console.error("Error: bundled spec-driven script not found next to this script");
+        process.exit(1);
+    }
+    const bundledSkills = fs.readdirSync(bundledSkillsDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && entry.name.startsWith("spec-driven-") && fs.existsSync(path.join(bundledSkillsDir, entry.name, "SKILL.md")))
+        .map((entry) => entry.name)
+        .sort();
+    if (bundledSkills.length === 0) {
+        console.error(`Error: no spec-driven skills found in ${bundledSkillsDir}`);
+        process.exit(1);
+    }
+    let changed = 0;
+    let skipped = 0;
+    const lines = [];
+    const openspecDir = path.join(targetDir, "openspec");
+    const specDir = path.join(targetDir, ".spec-driven");
+    if (fs.existsSync(openspecDir)) {
+        if (fs.existsSync(specDir)) {
+            lines.push(`Skipped openspec/ rename: ${specDir} already exists`);
+            skipped++;
+        }
+        else {
+            fs.renameSync(openspecDir, specDir);
+            lines.push(`Moved openspec/ -> .spec-driven/`);
+            changed++;
+        }
+    }
+    if (fs.existsSync(specDir)) {
+        changed += ensureSpecDrivenScaffold(specDir, lines);
+    }
+    for (const tool of supportedMigrationTools) {
+        const rootDir = path.join(targetDir, tool.rootDir);
+        const skillsDir = path.join(targetDir, tool.skillsDir);
+        const commandsDir = path.join(targetDir, tool.commandsDir);
+        const hadOpenSpecSkills = hasMatchingEntries(skillsDir, isOpenSpecSkillName);
+        const hadOpenSpecCommands = hasMatchingEntries(commandsDir, isOpenSpecCommandName);
+        if (!fs.existsSync(rootDir) || (!hadOpenSpecSkills && !hadOpenSpecCommands))
+            continue;
+        const removedSkills = removeMatchingEntries(skillsDir, isOpenSpecSkillName);
+        const removedCommands = removeMatchingEntries(commandsDir, isOpenSpecCommandName);
+        const installed = installBundledSkills(bundledSkillsDir, bundledScriptPath, bundledSkills, skillsDir, targetDir);
+        lines.push(`Migrated ${tool.name} tool config:`);
+        if (removedSkills > 0)
+            lines.push(`  removed ${removedSkills} openspec skill artifact(s)`);
+        if (removedCommands > 0)
+            lines.push(`  removed ${removedCommands} openspec command artifact(s)`);
+        if (installed > 0)
+            lines.push(`  installed ${installed} slim-spec-driven skill(s)`);
+        if (removedSkills === 0 && removedCommands === 0 && installed === 0) {
+            lines.push(`  no changes needed`);
+        }
+        changed += removedSkills + removedCommands + installed;
+    }
+    for (const entry of fs.readdirSync(targetDir, { withFileTypes: true })) {
+        if (!entry.isDirectory() || !entry.name.startsWith("."))
+            continue;
+        if ([".spec-driven", ".claude", ".opencode"].includes(entry.name))
+            continue;
+        if (!hasOpenSpecArtifacts(path.join(targetDir, entry.name), 3))
+            continue;
+        lines.push(`Skipped unsupported AI tool: ${entry.name}`);
+        skipped++;
+    }
+    if (lines.length === 0) {
+        lines.push("No OpenSpec artifacts found.");
+    }
+    lines.push(`Done. ${changed} change(s), ${skipped} skipped.`);
+    console.log(lines.join("\n"));
+}
+function list() {
+    if (!fs.existsSync(changesDir)) {
+        console.log("No .spec-driven/changes/ directory found.");
+        process.exit(0);
+    }
+    const entries = fs.readdirSync(changesDir, { withFileTypes: true });
+    const active = entries
+        .filter((e) => e.isDirectory() && e.name !== "archive")
+        .map((e) => e.name);
+    if (active.length > 0) {
+        console.log("Active:");
+        for (const c of active)
+            console.log(`  ${c}    ${getStatus(c)}`);
+    }
+    const archiveDir = path.join(changesDir, "archive");
+    if (fs.existsSync(archiveDir)) {
+        const archived = fs.readdirSync(archiveDir, { withFileTypes: true })
+            .filter((e) => e.isDirectory())
+            .map((e) => e.name);
+        if (archived.length > 0) {
+            console.log("Archived:");
+            for (const a of archived)
+                console.log(`  ${a}`);
+        }
+    }
+    if (active.length === 0 && (!fs.existsSync(archiveDir) || fs.readdirSync(archiveDir).length === 0)) {
+        console.log("No changes.");
+    }
+}
+function ensureSpecDrivenScaffold(specDir, lines) {
+    let changed = 0;
+    const changesPath = path.join(specDir, "changes");
+    const specsPath = path.join(specDir, "specs");
+    if (!fs.existsSync(changesPath)) {
+        fs.mkdirSync(changesPath, { recursive: true });
+        lines.push(`Created ${path.join(".spec-driven", "changes")}/`);
+        changed++;
+    }
+    if (!fs.existsSync(specsPath)) {
+        fs.mkdirSync(specsPath, { recursive: true });
+        lines.push(`Created ${path.join(".spec-driven", "specs")}/`);
+        changed++;
+    }
+    if (!fs.existsSync(path.join(specDir, "config.yaml"))) {
+        fs.writeFileSync(path.join(specDir, "config.yaml"), INIT_CONFIG_YAML);
+        lines.push(`Created ${path.join(".spec-driven", "config.yaml")}`);
+        changed++;
+    }
+    if (!fs.existsSync(path.join(specsPath, "INDEX.md"))) {
+        fs.writeFileSync(path.join(specsPath, "INDEX.md"), INIT_INDEX_MD);
+        lines.push(`Created ${path.join(".spec-driven", "specs", "INDEX.md")}`);
+        changed++;
+    }
+    if (!fs.existsSync(path.join(specsPath, "README.md"))) {
+        fs.writeFileSync(path.join(specsPath, "README.md"), INIT_README_MD);
+        lines.push(`Created ${path.join(".spec-driven", "specs", "README.md")}`);
+        changed++;
+    }
+    return changed;
+}
+function resolveBundledSkillsDir() {
+    const scriptPath = path.resolve(process.argv[1]);
+    const scriptDir = path.dirname(scriptPath);
+    const candidates = [
+        path.resolve(scriptDir, "..", "..", ".."),
+        path.resolve(scriptDir, "..", "..", "skills"),
+        path.resolve(scriptDir, "..", ".."),
+    ];
+    for (const candidate of candidates) {
+        if (!fs.existsSync(candidate) || !fs.statSync(candidate).isDirectory())
+            continue;
+        const entries = fs.readdirSync(candidate, { withFileTypes: true });
+        if (entries.some((entry) => entry.isDirectory() && entry.name.startsWith("spec-driven-") && fs.existsSync(path.join(candidate, entry.name, "SKILL.md")))) {
+            return candidate;
+        }
+    }
+    return null;
+}
+function resolveBundledScriptPath() {
+    const scriptPath = path.resolve(process.argv[1]);
+    const scriptDir = path.dirname(scriptPath);
+    const candidates = [
+        scriptPath,
+        path.resolve(scriptDir, "spec-driven.js"),
+        path.resolve(scriptDir, "..", "..", "dist", "scripts", "spec-driven.js"),
+    ];
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile() && candidate.endsWith(".js")) {
+            return candidate;
+        }
+    }
+    return null;
+}
+function installBundledSkills(sourceDir, scriptPath, skills, targetDir, projectDir) {
+    let installed = 0;
+    if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+    }
+    for (const skill of skills) {
+        const src = path.join(sourceDir, skill);
+        const dest = path.join(targetDir, skill);
+        if (fs.existsSync(dest))
+            continue;
+        fs.mkdirSync(path.join(dest, "scripts"), { recursive: true });
+        const skillDirRef = normalizePath(path.relative(projectDir, dest) || ".");
+        const skillContent = fs.readFileSync(path.join(src, "SKILL.md"), "utf-8")
+            .replace(/\{\{SKILL_DIR\}\}/g, skillDirRef);
+        fs.writeFileSync(path.join(dest, "SKILL.md"), skillContent);
+        fs.copyFileSync(scriptPath, path.join(dest, "scripts", "spec-driven.js"));
+        installed++;
+    }
+    return installed;
+}
+function hasMatchingEntries(dir, matcher) {
+    if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory())
+        return false;
+    return fs.readdirSync(dir, { withFileTypes: true }).some((entry) => matcher(entry.name));
+}
+function removeMatchingEntries(dir, matcher) {
+    if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory())
+        return 0;
+    let removed = 0;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (!matcher(entry.name))
+            continue;
+        fs.rmSync(path.join(dir, entry.name), { recursive: true, force: true });
+        removed++;
+    }
+    return removed;
+}
+function hasOpenSpecArtifacts(dir, depth) {
+    if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory())
+        return false;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (isOpenSpecSkillName(entry.name) || isOpenSpecCommandName(entry.name)) {
+            return true;
+        }
+        if (depth > 0 && entry.isDirectory() && hasOpenSpecArtifacts(path.join(dir, entry.name), depth - 1)) {
+            return true;
+        }
+    }
+    return false;
+}
+function isOpenSpecSkillName(name) {
+    return name.startsWith("openspec-");
+}
+function isOpenSpecCommandName(name) {
+    return name === "opsx" || name === "openspec" || name.startsWith("opsx-") || name.startsWith("openspec-") || name.startsWith("opsx:") || name.startsWith("openspec:");
+}
+function normalizePath(value) {
+    return value.split(path.sep).join("/");
 }
