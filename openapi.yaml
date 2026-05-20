@@ -1,0 +1,3221 @@
+openapi: 3.1.0
+info:
+  title: auto-read API
+  version: 1.0.0
+  description: auto-read 内容聚合平台 API，用于管理文章抓取、用户订阅、数据导出等功能。
+  contact:
+    name: auto-read 团队
+
+servers:
+  - url: /
+    description: 当前服务
+
+security: []
+
+tags:
+  - name: 文章
+    description: 文章查询与搜索
+  - name: 认证
+    description: 用户注册与登录
+  - name: 订阅
+    description: 用户内容订阅管理
+  - name: 信息流
+    description: 个性化内容推送
+  - name: 书签
+    description: 文章收藏管理
+  - name: 阅读进度
+    description: 文章阅读位置记录
+  - name: 用户偏好
+    description: 用户个性化设置
+  - name: 摘要
+    description: AI 文章摘要生成
+  - name: 适配器
+    description: 抓取适配器管理
+  - name: 凭证
+    description: 适配器凭证管理
+  - name: 监控
+    description: 任务执行监控
+  - name: 通知
+    description: 系统通知管理
+  - name: 导出
+    description: 文章数据导出
+  - name: 健康
+    description: 适配器健康状态
+  - name: 自愈
+    description: 适配器自愈管理
+  - name: 站点知识
+    description: 站点抓取知识库
+  - name: 插件
+    description: 插件生命周期管理
+  - name: 指标
+    description: 抓取指标查询
+  - name: 调优
+    description: 抓取参数调优
+  - name: 采集
+    description: 浏览器扩展内容采集
+
+paths:
+  # ========== 文章 ==========
+  /api/articles:
+    get:
+      tags: [文章]
+      summary: 获取文章列表
+      description: 分页查询文章，支持按来源、关键词、标签和日期范围过滤。
+      parameters:
+        - name: source
+          in: query
+          schema:
+            type: string
+          description: 按来源过滤
+        - name: keyword
+          in: query
+          schema:
+            type: string
+          description: 按标题关键词过滤
+        - name: tag
+          in: query
+          schema:
+            type: string
+          description: 按标签过滤
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: 起始日期（ISO 8601）
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: 结束日期（ISO 8601）
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: 页码
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+          description: 每页数量
+      responses:
+        "200":
+          description: 文章列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArticleList"
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/articles/search:
+    get:
+      tags: [文章]
+      summary: 全文搜索文章
+      description: 对文章标题和正文进行全文检索，结果按相关度排序。
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 搜索关键词
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+      responses:
+        "200":
+          description: 搜索结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResult"
+        "400":
+          description: 缺少搜索关键词
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/articles/{articleId}:
+    get:
+      tags: [文章]
+      summary: 获取单篇文章
+      parameters:
+        - name: articleId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 文章详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Article"
+        "400":
+          description: 无效的 ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 文章不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/articles/{articleId}/summary:
+    post:
+      tags: [摘要]
+      summary: 生成文章 AI 摘要
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: articleId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 摘要生成结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary:
+                    type: string
+                    nullable: true
+        "400":
+          description: 无效的文章 ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 文章不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: 摘要服务不可用
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 认证 ==========
+  /api/auth/register:
+    post:
+      tags: [认证]
+      summary: 用户注册
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 50
+                password:
+                  type: string
+                  minLength: 8
+                displayName:
+                  type: string
+      responses:
+        "201":
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: 参数验证失败
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: 用户名已存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/login:
+    post:
+      tags: [认证]
+      summary: 用户登录
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT 令牌
+        "401":
+          description: 用户名或密码错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 适配器 ==========
+  /api/adapters:
+    get:
+      tags: [适配器]
+      summary: 获取适配器列表
+      description: 返回所有已注册适配器的状态信息。
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 适配器列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Adapter"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/adapters/{name}/{action}:
+    post:
+      tags: [适配器]
+      summary: 控制适配器
+      description: 执行 start、stop 或 fetch 操作。
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 适配器名称
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [start, stop, fetch]
+          description: 操作类型
+      responses:
+        "200":
+          description: 操作结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  started:
+                    type: boolean
+                    description: 仅 start 操作返回
+                  stopped:
+                    type: boolean
+                    description: 仅 stop 操作返回
+                  triggered:
+                    type: boolean
+                    description: 仅 fetch 操作返回
+        "400":
+          description: 无效路径
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 适配器不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/adapters/{name}/interval:
+    put:
+      tags: [适配器]
+      summary: 更新适配器抓取间隔
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [interval]
+              properties:
+                interval:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                  description: 抓取间隔（秒）
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  interval:
+                    type: integer
+                    format: int64
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 凭证 ==========
+  /api/credentials:
+    get:
+      tags: [凭证]
+      summary: 获取凭证列表
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 凭证列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Credential"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/credentials/{adapterName}:
+    post:
+      tags: [凭证]
+      summary: 添加凭证
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: adapterName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type:
+                  type: string
+                  enum: [cookie, token]
+                token:
+                  type: string
+                  description: type 为 token 时必填
+                cookies:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: type 为 cookie 时必填
+                priority:
+                  type: integer
+                  default: 0
+                expiresAt:
+                  type: string
+                  format: date-time
+                  description: 过期时间（ISO 8601）
+      responses:
+        "200":
+          description: 保存成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adapterName:
+                    type: string
+                  saved:
+                    type: boolean
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/credentials/{adapterName}/refresh:
+    post:
+      tags: [凭证]
+      summary: 刷新适配器凭证
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: adapterName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 刷新结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adapterName:
+                    type: string
+                  refreshed:
+                    type: boolean
+                  reason:
+                    type: string
+                    nullable: true
+                    description: 仅刷新失败时返回
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/credentials/{adapterName}/{id}:
+    delete:
+      tags: [凭证]
+      summary: 撤销凭证
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: adapterName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 撤销成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adapterName:
+                    type: string
+                  credentialId:
+                    type: integer
+                    format: int64
+                  revoked:
+                    type: boolean
+        "400":
+          description: 无效的凭证 ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 监控 ==========
+  /api/monitor/tasks:
+    get:
+      tags: [监控]
+      summary: 获取任务执行记录
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+        - name: adapter
+          in: query
+          schema:
+            type: string
+          description: 按适配器过滤
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [success, error]
+          description: 按状态过滤
+      responses:
+        "200":
+          description: 任务列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskList"
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/monitor/stats:
+    get:
+      tags: [监控]
+      summary: 获取适配器统计信息
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 统计信息列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdapterStats"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/monitor/errors:
+    get:
+      tags: [监控]
+      summary: 获取错误任务记录
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+        - name: adapter
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: 错误任务列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskList"
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/monitor/logs:
+    get:
+      tags: [监控]
+      summary: 获取系统日志
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: level
+          in: query
+          schema:
+            type: string
+          description: 按日志级别过滤
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: 搜索关键词
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+            minimum: 1
+            maximum: 1000
+          description: 返回条数
+      responses:
+        "200":
+          description: 日志列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LogEntry"
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 通知 ==========
+  /api/notifications:
+    get:
+      tags: [通知]
+      summary: 获取通知列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: 按状态过滤
+        - name: adapter
+          in: query
+          schema:
+            type: string
+          description: 按适配器过滤
+      responses:
+        "200":
+          description: 通知列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationList"
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/notifications/adapters:
+    get:
+      tags: [通知]
+      summary: 获取通知来源适配器列表
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 适配器名称列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 订阅 ==========
+  /api/subscriptions:
+    get:
+      tags: [订阅]
+      summary: 获取当前用户订阅
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 已有订阅
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "201":
+          description: 新创建的订阅
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "401":
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [订阅]
+      summary: 更新订阅配置
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                adapterNames:
+                  type: array
+                  items:
+                    type: string
+                  nullable: true
+                  description: 订阅的适配器列表，null 表示不修改，空数组表示清空
+                keywords:
+                  type: array
+                  items:
+                    type: string
+                  nullable: true
+                  description: 订阅关键词列表，null 表示不修改，空数组表示清空
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "401":
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [订阅]
+      summary: 删除订阅
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: 删除成功
+        "401":
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 订阅不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/subscriptions/recommendations:
+    get:
+      tags: [订阅]
+      summary: 获取推荐适配器
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 推荐适配器名称列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        "401":
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/subscriptions/toggle:
+    put:
+      tags: [订阅]
+      summary: 切换订阅启用状态
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 切换成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "401":
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 信息流 ==========
+  /api/feed:
+    get:
+      tags: [信息流]
+      summary: 获取个性化信息流
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: 信息流内容
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedResult"
+        "401":
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 用户偏好 ==========
+  /api/preferences:
+    get:
+      tags: [用户偏好]
+      summary: 获取用户偏好设置
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 用户偏好
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPreference"
+        "201":
+          description: 新创建的默认偏好
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPreference"
+        "401":
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [用户偏好]
+      summary: 更新用户偏好设置
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notificationFrequency:
+                  type: string
+                  enum: [immediate, daily, weekly, disabled]
+                minArticleLength:
+                  type: integer
+                articlesPerPage:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                theme:
+                  type: string
+                  enum: [light, dark, system]
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPreference"
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 书签 ==========
+  /api/bookmarks:
+    get:
+      tags: [书签]
+      summary: 获取收藏列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: 收藏列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookmarkList"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [书签]
+      summary: 添加收藏
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [articleId]
+              properties:
+                articleId:
+                  type: integer
+                  format: int64
+      responses:
+        "201":
+          description: 收藏成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bookmark"
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: 已收藏
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/bookmarks/check:
+    get:
+      tags: [书签]
+      summary: 批量检查收藏状态
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: articleIds
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 文章 ID 列表，逗号分隔（如 "1,2,3"）
+      responses:
+        "200":
+          description: 文章 ID 到收藏状态的映射
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: boolean
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/bookmarks/{articleId}:
+    delete:
+      tags: [书签]
+      summary: 取消收藏
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: articleId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "204":
+          description: 取消成功
+        "400":
+          description: 无效 ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 收藏不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 阅读进度 ==========
+  /api/reading-progress:
+    get:
+      tags: [阅读进度]
+      summary: 批量获取阅读进度
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: articleIds
+          in: query
+          schema:
+            type: string
+          description: 文章 ID 列表，逗号分隔
+      responses:
+        "200":
+          description: 文章 ID 到进度百分比的映射
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: integer
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/reading-progress/{articleId}:
+    get:
+      tags: [阅读进度]
+      summary: 获取单篇文章阅读进度
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: articleId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 阅读进度
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadingProgress"
+        "400":
+          description: 无效 ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [阅读进度]
+      summary: 更新阅读进度
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: articleId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scrollPosition]
+              properties:
+                scrollPosition:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+                  description: 滚动位置百分比
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadingProgress"
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [阅读进度]
+      summary: 删除阅读进度
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: articleId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "204":
+          description: 删除成功
+        "400":
+          description: 无效 ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 进度不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 导出 ==========
+  /api/export:
+    post:
+      tags: [导出]
+      summary: 同步导出文章
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "200":
+          description: 导出完成，返回任务信息
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportTask"
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/export/async:
+    post:
+      tags: [导出]
+      summary: 异步导出文章
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "202":
+          description: 导出任务已创建
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportTask"
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/export/{taskId}:
+    get:
+      tags: [导出]
+      summary: 查询导出任务进度
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 任务进度
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportTask"
+        "404":
+          description: 任务不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/export/{taskId}/download:
+    get:
+      tags: [导出]
+      summary: 下载导出文件
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 导出文件
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: 任务不存在或未完成
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 健康 ==========
+  /api/health:
+    get:
+      tags: [健康]
+      summary: 获取所有适配器健康状态
+      responses:
+        "200":
+          description: 健康状态列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HealthStatus"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/health/{adapter}:
+    get:
+      tags: [健康]
+      summary: 获取单个适配器健康状态
+      parameters:
+        - name: adapter
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 适配器名称
+      responses:
+        "200":
+          description: 健康状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+        "404":
+          description: 无健康数据
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 自愈 ==========
+  /api/self-healing:
+    get:
+      tags: [自愈]
+      summary: 获取所有自愈记录
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 自愈记录列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HealingRecord"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/self-healing/pending:
+    get:
+      tags: [自愈]
+      summary: 获取待确认的自愈记录
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 待确认的自愈记录
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HealingRecord"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/self-healing/adapter/{name}:
+    get:
+      tags: [自愈]
+      summary: 按适配器查询自愈记录
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 自愈记录列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HealingRecord"
+        "400":
+          description: 无效的适配器名称
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/self-healing/{id}:
+    get:
+      tags: [自愈]
+      summary: 获取单条自愈记录
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 自愈记录
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealingRecord"
+        "404":
+          description: 记录不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/self-healing/{id}/confirm:
+    post:
+      tags: [自愈]
+      summary: 确认执行自愈修复
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 确认成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealingRecord"
+        "400":
+          description: 无效 ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 记录不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: 状态不允许确认
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/self-healing/{id}/reject:
+    post:
+      tags: [自愈]
+      summary: 拒绝自愈修复
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 拒绝成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealingRecord"
+        "400":
+          description: 无效 ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 记录不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 站点知识 ==========
+  /api/site-knowledge/snapshots:
+    get:
+      tags: [站点知识]
+      summary: 获取站点快照
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: domain
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 域名
+        - name: adapter
+          in: query
+          schema:
+            type: string
+          description: 适配器名称（指定则返回单个，不指定则返回数组）
+      responses:
+        "200":
+          description: 站点快照
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/SiteSnapshot"
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/SiteSnapshot"
+        "400":
+          description: 缺少 domain 参数
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/site-knowledge/params:
+    get:
+      tags: [站点知识]
+      summary: 获取站点最优参数
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: domain
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: adapter
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 最优参数
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/SiteParams"
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/SiteParams"
+        "400":
+          description: 缺少 domain 参数
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/site-knowledge/changes:
+    get:
+      tags: [站点知识]
+      summary: 获取站点变更记录
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: domain
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: adapter
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 变更记录列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SiteChange"
+        "400":
+          description: 缺少 domain 参数
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 插件 ==========
+  /api/plugins:
+    get:
+      tags: [插件]
+      summary: 获取插件列表
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 插件列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Plugin"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/plugins/install:
+    post:
+      tags: [插件]
+      summary: 安装插件
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path:
+                  type: string
+                  description: 插件 JAR 文件路径
+      responses:
+        "201":
+          description: 安装成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plugin"
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/plugins/{pluginId}:
+    get:
+      tags: [插件]
+      summary: 获取插件详情
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: pluginId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 插件详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plugin"
+        "404":
+          description: 插件不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [插件]
+      summary: 卸载插件
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: pluginId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 卸载成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  removed:
+                    type: boolean
+                  id:
+                    type: string
+        "404":
+          description: 插件不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 指标 ==========
+  /api/metrics:
+    get:
+      tags: [指标]
+      summary: 查询抓取指标
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: 起始时间（ISO 8601）
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: 结束时间（ISO 8601）
+        - name: adapter
+          in: query
+          schema:
+            type: string
+          description: 适配器名称（指定则返回单个，不指定则返回数组）
+      responses:
+        "200":
+          description: 指标数据
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/MetricData"
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/MetricData"
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/metrics/adapters:
+    get:
+      tags: [指标]
+      summary: 获取有指标数据的适配器列表
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 适配器名称列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 调优 ==========
+  /api/tuning/suggestions:
+    get:
+      tags: [调优]
+      summary: 获取调优建议
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: adapter
+          in: query
+          schema:
+            type: string
+          description: 按适配器过滤
+      responses:
+        "200":
+          description: 建议列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TuningSuggestion"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [调优]
+      summary: 生成调优建议
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: adapter
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: max
+          in: query
+          schema:
+            type: integer
+            default: 5
+          description: 最大建议数量
+      responses:
+        "200":
+          description: 生成的建议
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TuningSuggestion"
+        "400":
+          description: 缺少 adapter 参数
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tuning/suggestions/{id}/apply:
+    post:
+      tags: [调优]
+      summary: 应用调优建议
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 应用成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  applied:
+                    type: object
+                    additionalProperties: {}
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 建议不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tuning/suggestions/{id}/reject:
+    post:
+      tags: [调优]
+      summary: 拒绝调优建议
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 拒绝成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rejected:
+                    type: string
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 建议不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tuning/experiments:
+    get:
+      tags: [调优]
+      summary: 获取调优实验列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: adapter
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 实验列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TuningExperiment"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [调优]
+      summary: 创建调优实验
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: adapter
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: durationMinutes
+          in: query
+          schema:
+            type: integer
+            default: 60
+          description: 实验时长（分钟）
+      responses:
+        "201":
+          description: 实验创建成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TuningExperiment"
+        "400":
+          description: 缺少 adapter 参数
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tuning/history:
+    get:
+      tags: [调优]
+      summary: 获取调优历史记录
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: adapter
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 历史记录列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TuningHistory"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tuning/history/{id}/rollback:
+    post:
+      tags: [调优]
+      summary: 回滚调优变更
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 回滚成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TuningHistory"
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 记录不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ========== 采集 ==========
+  /api/ingest:
+    post:
+      tags: [采集]
+      summary: 采集页面快照
+      description: 浏览器扩展提交页面快照，需要通过 X-Local-Token 头认证。
+      security:
+        - LocalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [finalUrl]
+              properties:
+                finalUrl:
+                  type: string
+                  description: 最终 URL
+                canonicalUrl:
+                  type: string
+                  description: 标准 URL
+                title:
+                  type: string
+                capturedAt:
+                  type: string
+                  format: date-time
+                  description: 采集时间（默认当前时间）
+                rawHtml:
+                  type: string
+                  description: 原始 HTML
+                bodyText:
+                  type: string
+                  description: 正文文本
+                metadata:
+                  type: string
+                  description: 元数据 JSON
+                imageUrls:
+                  type: array
+                  items:
+                    type: string
+                  description: 图片 URL 列表
+      responses:
+        "200":
+          description: 已存在（重复快照）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [duplicate]
+                  id:
+                    type: integer
+        "201":
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [created]
+                  id:
+                    type: integer
+        "400":
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Token 认证失败
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "413":
+          description: 请求体过大（超过 10MB）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 在 Authorization 头中传递 JWT 令牌（Bearer <token>）
+    LocalToken:
+      type: apiKey
+      in: header
+      name: X-Local-Token
+      description: 浏览器扩展使用的本地认证令牌
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: 错误信息
+
+    Article:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        body:
+          type: string
+        source:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        fetchedAt:
+          type: string
+          format: date-time
+          nullable: true
+        summary:
+          type: string
+          nullable: true
+
+    ArticleList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Article"
+        total:
+          type: integer
+          format: int64
+        offset:
+          type: integer
+          format: int64
+        limit:
+          type: integer
+          format: int64
+
+    SearchResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/Article"
+              - type: object
+                properties:
+                  score:
+                    type: number
+                    format: double
+        total:
+          type: integer
+          format: int64
+        offset:
+          type: integer
+          format: int64
+        limit:
+          type: integer
+          format: int64
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [USER, ADMIN]
+        createdAt:
+          type: string
+          format: date-time
+
+    Adapter:
+      type: object
+      properties:
+        name:
+          type: string
+        interval:
+          type: integer
+          format: int64
+        running:
+          type: boolean
+        lastFetchedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    Credential:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        adapterName:
+          type: string
+        type:
+          type: string
+          enum: [cookie, token]
+        isActive:
+          type: boolean
+        isRevoked:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        priority:
+          type: integer
+
+    TaskList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskExecution"
+        total:
+          type: integer
+          format: int64
+        offset:
+          type: integer
+          format: int64
+        limit:
+          type: integer
+
+    TaskExecution:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        adapterName:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        durationMs:
+          type: integer
+          format: int64
+          nullable: true
+        status:
+          type: string
+        errorMessage:
+          type: string
+          nullable: true
+        articleCount:
+          type: integer
+
+    AdapterStats:
+      type: object
+      properties:
+        adapterName:
+          type: string
+        totalRuns:
+          type: integer
+        successCount:
+          type: integer
+        errorCount:
+          type: integer
+        successRate:
+          type: number
+          format: double
+        avgDurationMs:
+          type: number
+          format: double
+
+    LogEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        level:
+          type: string
+        logger:
+          type: string
+        message:
+          type: string
+
+    NotificationList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+        total:
+          type: integer
+          format: int64
+        offset:
+          type: integer
+          format: int64
+        limit:
+          type: integer
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        sourceAdapter:
+          type: string
+        articleCount:
+          type: integer
+        subject:
+          type: string
+        body:
+          type: string
+        status:
+          type: string
+          nullable: true
+        channelName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        retryCount:
+          type: integer
+        lastError:
+          type: string
+          nullable: true
+
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        adapterNames:
+          type: array
+          items:
+            type: string
+        keywords:
+          type: array
+          items:
+            type: string
+        enabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    FeedResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Article"
+        hasMore:
+          type: boolean
+        offset:
+          type: integer
+          format: int64
+        limit:
+          type: integer
+
+    BookmarkList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Bookmark"
+        total:
+          type: integer
+          format: int64
+        hasMore:
+          type: boolean
+        offset:
+          type: integer
+          format: int64
+        limit:
+          type: integer
+
+    Bookmark:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        articleId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        body:
+          type: string
+        source:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        fetchedAt:
+          type: string
+          format: date-time
+          nullable: true
+        bookmarkedAt:
+          type: string
+          format: date-time
+
+    UserPreference:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        notificationFrequency:
+          type: string
+          enum: [immediate, daily, weekly, disabled]
+        minArticleLength:
+          type: integer
+        articlesPerPage:
+          type: integer
+        theme:
+          type: string
+          enum: [light, dark, system]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ReadingProgress:
+      type: object
+      properties:
+        articleId:
+          type: integer
+          format: int64
+        scrollPosition:
+          type: integer
+        lastReadAt:
+          type: string
+          format: date-time
+
+    ExportRequest:
+      type: object
+      properties:
+        format:
+          type: string
+          enum: [json, csv, markdown, epub]
+          default: json
+          description: 导出格式
+        source:
+          type: string
+          nullable: true
+          description: 按来源过滤
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        keyword:
+          type: string
+          nullable: true
+          description: 按关键词过滤
+
+    ExportTask:
+      type: object
+      properties:
+        taskId:
+          type: string
+        status:
+          type: string
+        progress:
+          type: number
+        error:
+          type: string
+          nullable: true
+        downloadUrl:
+          type: string
+          nullable: true
+          description: 完成后可用的下载地址
+        createdAt:
+          type: string
+          format: date-time
+
+    HealthStatus:
+      type: object
+      properties:
+        adapterName:
+          type: string
+        healthy:
+          type: boolean
+        consecutiveFailures:
+          type: integer
+        lastFailureCategory:
+          type: string
+          nullable: true
+        lastErrorMessage:
+          type: string
+          nullable: true
+        lastSuccessAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastFailureAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastCheckedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    HealingRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        adapterName:
+          type: string
+        status:
+          type: string
+        triggerReason:
+          type: string
+          nullable: true
+        diagnosis:
+          type: object
+          nullable: true
+          properties:
+            failureCategory:
+              type: string
+            errorMessage:
+              type: string
+              nullable: true
+            confidence:
+              type: number
+            suggestedStrategy:
+              type: string
+              nullable: true
+        repairStrategy:
+          type: string
+          nullable: true
+        repairDescription:
+          type: string
+          nullable: true
+        snapshotBefore:
+          type: string
+          nullable: true
+        verificationPassed:
+          type: boolean
+        repairAttempt:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    SiteSnapshot:
+      type: object
+      properties:
+        id:
+          type: string
+        domain:
+          type: string
+        adapterName:
+          type: string
+        cssSelectors:
+          type: object
+          additionalProperties:
+            type: string
+        apiResponseFormat:
+          type: string
+          nullable: true
+        capturedAt:
+          type: string
+          format: date-time
+
+    SiteParams:
+      type: object
+      properties:
+        id:
+          type: string
+        domain:
+          type: string
+        adapterName:
+          type: string
+        optimalRequestsPerSecond:
+          type: number
+        optimalDelayMs:
+          type: number
+        preferredProxyProtocol:
+          type: string
+          nullable: true
+        simulationPreset:
+          type: string
+          nullable: true
+        successRate:
+          type: number
+        sampleSize:
+          type: integer
+        calculatedAt:
+          type: string
+          format: date-time
+
+    SiteChange:
+      type: object
+      properties:
+        id:
+          type: string
+        domain:
+          type: string
+        adapterName:
+          type: string
+        changeType:
+          type: string
+        description:
+          type: string
+          nullable: true
+        snapshotBeforeId:
+          type: string
+          nullable: true
+        snapshotAfterId:
+          type: string
+          nullable: true
+        detectedAt:
+          type: string
+          format: date-time
+
+    Plugin:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        apiVersion:
+          type: string
+        entryClass:
+          type: string
+        compatible:
+          type: boolean
+        compatibilityStatus:
+          type: string
+        installed:
+          type: boolean
+        sourcePath:
+          type: string
+        lastError:
+          nullable: true
+
+    MetricData:
+      type: object
+      properties:
+        adapterId:
+          type: string
+        totalCount:
+          type: integer
+        successCount:
+          type: integer
+        blockedCount:
+          type: integer
+        successRate:
+          type: number
+          format: double
+        blockedRate:
+          type: number
+          format: double
+        avgResponseTimeMs:
+          type: number
+          format: double
+
+    TuningSuggestion:
+      type: object
+      properties:
+        id:
+          type: string
+        adapterId:
+          type: string
+        currentParams:
+          type: object
+          additionalProperties: {}
+        suggestedParams:
+          type: object
+          additionalProperties: {}
+        expectedImprovement:
+          type: number
+        rationale:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    TuningExperiment:
+      type: object
+      properties:
+        id:
+          type: string
+        adapterId:
+          type: string
+        durationMinutes:
+          type: integer
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        groups:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              params:
+                type: object
+                additionalProperties: {}
+              metrics:
+                type: object
+                nullable: true
+                properties:
+                  totalRequests:
+                    type: integer
+                  successCount:
+                    type: integer
+                  blockedCount:
+                    type: integer
+                  blockedRate:
+                    type: number
+
+    TuningHistory:
+      type: object
+      properties:
+        id:
+          type: string
+        adapterId:
+          type: string
+        previousParams:
+          type: object
+          additionalProperties: {}
+        newParams:
+          type: object
+          additionalProperties: {}
+        expectedImprovement:
+          type: number
+        rationale:
+          type: string
+        appliedAt:
+          type: string
+          format: date-time
+        isRollback:
+          type: boolean
